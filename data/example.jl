@@ -1,182 +1,215 @@
-using JuMP
-using SCIP
-using JLD2
+NP = 9 # number of units
+NC = 2 # number of contaminants
+NT = 2 # number of treatment combinations
+NDi = 11 # number of available standard diameters
 
-m = Model(with_optimizer(SCIP.Optimizer, numerics_feastol = 1e-03, limits_gap=0.05, randomization_permutationseed = 5))
-#m = Model(with_optimizer(SCIP.Optimizer, limits_gap=0.05))
-
-
-include("Input_Inc.jl")
-#include("Example_Input_test.jl")
+NL = 3 # number of incremental levels
 
 
-@variable(m, X[1:NP, 1:NP, 1:NL], Bin)
-@variable(m, Y_R[1:NP, 1:NP, 1:NT, 1:NL], Bin)
-#@variable(m, Y_E[1:NP, 1:NT, 1:NL], Bin)
-
-# flow
-@variable(m, 0 <= Q_R[1:NP, 1:NP, 1:NL])
-@variable(m, 0 <= Q_RT[1:NP, 1:NP, 1:NL])
-#@variable(m, 0 <= Q_TL[1:NP, 1:NP, 1:NL])
-@variable(m, 0 <= Q_FW[1:NP, 1:NL])
-@variable(m, 0 <= Q_E[1:NP, 1:NL])
+Q_min = 2
+# Class of water quality
 
 
-# concentreation
-@variable(m, 0 <= C_P[1:NP, 1:NC, 1:NL])
-@variable(m, 0 <= C_PO[1:NP, 1:NC, 1:NL])
-@variable(m, 0 <= C_RT[1:NP, 1:NP, 1:NC, 1:NL])
-#@variable(m, 0 <= C_E[1:NP, 1:NC, 1:NL])
+Q_P_123  = [
+200	200	200
+70	70	70
+70	70	70
+0	7	14
+0	17	34
+50	100	100
+40	80	80
+9	9	9
+7	10.5	10.5
+14	21	21    
+]
 
-# treatment
-@variable(m, R[1:NP, 1:NP, 1:NC, 1:NL])   # no bounds, makes it slower!
-#@variable(m, R_E[1:NP, 1:NC, 1:NL])
+Q_RT_1 = [
+0.00	25.16	31.49	0.00	0.00	11.74	18.00	4.25	0.00
+0.00	0.00	20.76	0.00	0.00	0.00	2.11	3.73	0.00
+0.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00
+0.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00
+0.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00
+0.00	3.74	0.00	0.00	0.00	0.00	0.00	0.00	0.00
+0.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00
+0.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00
+5.35	0.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00
+]
 
-
-
-# Transport variables
-#@variable(m, 0 <= Di[1:NP, 1:NP])
-#@variable(m, 0 <= Di_idx[1:NP, 1:NP, 1:NDi], Bin)
-#@variable(m, 0 <= v[1:NP, 1:NP])
-#@variable(m, 0 <= hf[1:NP, 1:NP])
-
-
-@variable(m, 0 <= CoFW[1:NP, 1:NL])
-#@variable(m, 0 <= Cost_of_pumping[1:NP, 1:NP])
-@variable(m, 0 <= CoP[1:NP, 1:NP, 1:NL]) # treatment cost
-@variable(m, 0 <= CoT_R[1:NP, 1:NP, 1:NL] ) # piping cost
-@variable(m, 0 <= CM[1:NL]) #connectivity measure
-
-# constraints
-#@constraint(m, [l = 1:NL], sum(Q_FW[1:NP, l]) == sum(Q_TL[1:NP, 1:NP, l]) + sum(Q_PL[1:NP, l]) + sum(Q_E[1:NP, l])) # (3.2) redundant!
-@constraint(m, [j = 1:NP, l = 1:NL], Q_P[j,l] == Q_FW[j,l] + sum(Q_RT[i,j,l] for i = 1:NP)) #(3.3)
-@constraint(m, [i = 1:NP, l = 1:NL], Q_PO[i,l] == sum(Q_R[i,j,l] for j = 1:NP) + Q_E[i,l]) # (3.4)
-#@constraint(m, [i = 1:NP], Q_PO[i] == Q_P[i] - Q_PL[i]) #(3.5)
-
-@constraint(m, [i = 1:NP, k = 1:NC, l = 1:NL], C_PO[i,k,l] == C_P[i,k,l] + C_MP[i,k]) # (3.6)
-
-@constraint(m, [i = 1:NP, k = 1:NC, l = 1:NL], C_P[i,k,l]*Q_P[i,l] == sum(Q_RT[j,i,l] * C_RT[j,i,k,l] for j = 1:NP) + C_FW[k]*Q_FW[i,l] ) #(3.7)
-@constraint(m, [i = 1:NP, j = 1:NP, k = 1:NC, l = 1:NL], C_RT[i,j,k,l] == C_PO[i,k,l]*(1 - R[i,j,k,l]/100)) #(3.8)
-@constraint(m, [i = 1:NP, j = 1:NP, l = 1:NL], Q_RT[i,j,l] == (sum(RR[m]*Y_R[i,j,m,l] for m = 1:NT)/100)*Q_R[i,j,l]) #(3.9)
-#@constraint(m, [i = 1:NP, j = 1:NP, l = 1:NL], Q_TL[i,j,l] == Q_R[i,j,l] - Q_RT[i,j,l] ) #(3.10)
-
-@constraint(m, [i = 1:NP, j = 1:NP, k = 1:NC, l = 1:NL],  R[i,j,k,l] == sum(R_U[m,k]*Y_R[i,j,m,l] for m = 1:NT)) #(3.11)
-@constraint(m, [i = 1:NP, j = 1:NP, l = 1:NL], sum(Y_R[i,j,m,l] for m = 1:NT) <= X[i,j,l])
-#@constraint(m, sum(Y_R, dims = 3) .==1)
+Q_RT_2 = [
+0.00	25.16	31.49	0.00	7.93	11.74	18.00	4.25	0.00
+0.00	0.00	20.76	2.13	2.18	0.00	2.11	3.73	0.00
+0.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00
+0.00	0.00	0.00	0.00	0.00	2.47	0.00	0.00	0.00
+0.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00
+0.00	3.74	0.00	0.00	0.00	0.00	0.00	0.00	0.00
+0.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00
+0.00	0.00	0.00	0.00	3.80	0.00	0.00	0.00	0.00
+5.35	0.00	0.00	0.00	0.00	0.00	2.67	0.00	0.00
+]
 
 
-# no recirculation 
-@constraint(m, [i = 1:NP, j = 1:NP, l = 1:NL], X[i,j,l] + X[j,i,l] <= 1) #(3.13)
+#flow rate each unit m3/hr
+Q_P = Q_P_123[:,1:3] #1
 
-
-# Constraints
-@constraint(m, [i = 1:NP, k = 1:NC, l = 1:NL], C_P[i,k,l] <= C_max[i,k]) #(3.14)
-#@constraint(m, [i = 1:NP, j = 1:NP, l = 1:NL], (1-X[i,j,l]) <= sum(Y_R[i,j,1,l]) #(3.15)
-@constraint(m, [i = 1:NP, j = 1:NP, l = 1:NL],  Q_RT[i,j,l] >= X[i,j,l]*Q_min) #(3.16)
-@constraint(m, [i = 1:NP, j = 1:NP, l = 1:NL],  Q_R[i,j,l] <= minimum([Q_P[i,l],Q_P[j,l]])*X[i,j,l]) #(3.17)
+#flow loss each unit %
+xloss  = [
+    10
+5
+5
+5
+20
+10
+10
+5
+10
+30
+40         
+]
 
 
 
-# tighter bounds
-@constraint(m, [i = 1:NP, l = 1:NL], Q_FW[i,l] <= Q_P[i,l])  #(3.18)
-@constraint(m, [i = 1:NP, l = 1:NL], Q_E[i,l] <= Q_P[i,l])   # (3.19)
-@constraint(m, [i = 1:NP, j = 1:NP, l = 1:NL], Q_R[i,j,l] <= minimum([Q_PO[i,l],Q_P[j,l]])) #(3.20)
-@constraint(m, [i = 1:NP, j = 1:NP, l = 1:NL], Q_RT[i,j,l] <= minimum([Q_PO[i,l],Q_P[j,l]])) #(3.21)
-@constraint(m, [i = 1:NP, j = 1:NP, k = 1:NC, l = 1:NL], C_RT[i,j,k,l] <= C_max[i,k] + C_MP[i,k]) #(3.22)
+ # Concentration max to each unit (COD, TDS, TSS)
+C_max = [
+15	700 
+75	1000
+50	700
+75	700
+75	1200
+15	700
+25	700
+75	1000
+15	700
+25	800
+        
+]
+
+C_MP = [
+    90	2000	50
+    300	500	100
+    3000	2000	500
+    300	500	100
+    2000	2000	500
+    3000	2000	500
+    4500	1200	100
+    400	500	10
+    300	2000	150
+    300	490	100
+    3000	15.3	3290               
+]
 
 
-# costs
-@constraint(m, [i = 1:NP, l = 1:NL], CoFW[i,l] ==  Q_FW[i,l]*CoFW_U[l]) #(3.27)
-@constraint(m, [i = 1:NP, j = 1:NP, l = 1:NL], CoT_R[i,j,l] == sum(Y_R[i,j,m,l]*CoT[m] for m = 1:NT)*Q_R[i,j,l]) #(3.28)
+C_FW = [10 500 10];   # fresh water contaminat concentration
 
-@constraint(m, [i = 1:NP, j = 1:NP, l = 1:NL], CoP[i,j,l] == Dis[i,j]*Q_RT[i,j,l])
-
-@constraint(m, [l = 1:NL], CM[l] == sum(DN[i,j]*X[i,j,l]/(NP*(NP-1)) for i = 1:NP, j = 1:NP))
-@constraint(m, [l = 1:NL], CM[l] <= 1)
+C_max_E = [1000 2000 250]; # discharge limit to sewer
 
 
+R_U = [
+45   23   50# UF
+70   97   98# UF + RO
+98  99  99 # FO + LPRO
+]
+
+CoT = [  5  
+         20
+         17
+]
+
+RR =
+        [85
+        45
+        30
+]
 
 
-# Incremental flow constraints
-
-@constraint(m, [i = 1:NP, j = 1:NP, l = 1:NL-1], X[i,j,l] <= X[i,j,l+1])  #(3.30)
-@constraint(m, [i = 1:NP, j = 1:NP, l = 1:NL-1], Q_RT[i,j,l] == Q_RT[i,j,l+1]*X[i,j,l]) #(3.31)
-
-#Incremental treatment constraints
-#@constraint(m, [i = 1:NP, j = 1:NP, l = 1:NL-1], Y_R[i,j,1,l] <= Y_R[i,j,1,l+1] )
-@constraint(m, [i = 1:NP, j = 1:NP, l = 1:NL-1], Y_R[i,j,1,l] <= Y_R[i,j,1,l+1] + Y_R[i,j,2,l+1] )
-@constraint(m, [i = 1:NP, j = 1:NP, l = 1:NL-1], Y_R[i,j,2,l] <= Y_R[i,j,2,l+1] )
-#@constraint(m, [i = 1:NP, j = 1:NP, l = 1:NL-1], Y_R[i,j,2,l] <= Y_R[i,j,2,l+1] + Y_R[i,j,3,l+1])
-#@constraint(m, [i = 1:NP, j = 1:NP, l = 1:NL-1], Y_R[i,j,3,l] <= Y_R[i,j,3,l+1])
+CoFW_U = [1 2 4]
 
 
-# Water saving constraint
-#@constraint(m, sum(Q_FW) / sum(Q_P) <= 0.80)
-#@constraint(m, sum(CoP) <= 0)
-#@constraint(m, sum(CoT_R) <= 25000)
-#@constraint(m, sum(CoT_R) + sum(CoP) <= 3500 )
-
-# Network connectivity measure
-#@constraint(m, sum(CM) == 0.5)
-
-#@constraint(m, Q_RT[:,:,1] .== Q_RT_1)
-#@constraint(m, Q_RT[:,:,2] .== Q_RT_2)
 
 
-@objective(m, Min,
-#sum(Q_FW)
-sum(CoFW)  
-#sum(Cost_of_pumping[i,j] for i = 1:NP, j = 1:NP) +
-#sum(CoP) + 
-#sum(CoT_R) 
-#sum(CoT_E)
+hoursperday = 8
+daysperyear = 261
 
-)   #(3.1)
+min_velocity = 0.8  #m/s
+max_velocity = 1.2 #m/s
 
-#@objective(m, Max, sum(Q_RT))
+nu = 1e-6
+g = 9.81
+rho = 1000
+pump_efficiency = 0.6
+Cost_per_kWh = 0.12 #Dollars/kWh
+pipe_roughness = 0.00015
+ft = 0.02 #friction factor
 
-JuMP.optimize!(m)
+Di_standard = 1e-3*[
+0
+32
+40
+50
+63
+75
+90
+110
+125
+140
+160
+]
 
-println("Objective value: ", JuMP.objective_value(m))
-Q_RT = JuMP.value.(Q_RT)
-Q_R = JuMP.value.(Q_R)
-#Q_TL = JuMP.value.(Q_TL)
-Q_FW = JuMP.value.(Q_FW)
-Q_E = JuMP.value.(Q_E)
-X = JuMP.value.(X)
-C_P = JuMP.value.(C_P)
-C_PO = JuMP.value.(C_PO)
-C_RT = JuMP.value.(C_RT)
+Price_per_Unit_pipe = [
+0
+1.58
+2.52
+3.91
+6.18
+8.63
+12.50
+18.54
+24.05
+29.98
+39.35
 
-R = JuMP.value.(R)
-Y_R = JuMP.value.(Y_R)
-#Y_E = JuMP.value.(Y_E)
+]
 
-#Di = JuMP.value.(Di)
-#Di_idx = JuMP.value.(Di_idx)
-#v = JuMP.value.(v)
-CoFW = JuMP.value.(CoFW)
-CoT_R = JuMP.value.(CoT_R)
-#CoT_E = JuMP.value.(CoT_E)
-CoP = JuMP.value.(CoP)
-CM = JuMP.value.(CM)
-#Cost_of_pumping = JuMP.value.(Cost_of_pumping)
-println("Water saving L1 : ", sum(Q_RT[:,:,1]))
-println("Water saving L2 : ", sum(Q_RT[:,:,2]))
-println("Water saving L3 : ", sum(Q_RT[:,:,3]))
-println("Water saving total : ", sum(Q_RT))
-#println("Water saving L1 %: ", (1 - sum(Q_FW[:,1])/sum(Q_P[:,1]))*100)
-#println("Water saving L2 %: ", (1 - sum(Q_FW[:,2])/sum(Q_P[:,2]))*100)
-#println("Water saving L3 %: ", (1 - sum(Q_FW[:,3])/sum(Q_P[:,3]))*100)
-println("Water saving total %: ", (1 - sum(Q_FW)/sum(Q_P))*100)
-println("Cost L1 : ", sum(CoT_R[:,:,1]) + sum(CoP[:,:,1]))
-println("Cost L2 : ", sum(CoT_R[:,:,2]) + sum(CoP[:,:,2]))
-println("Cost L3 : ", sum(CoT_R[:,:,3]) + sum(CoP[:,:,3]))
-println("Cost total : ", sum(CoT_R) + sum(CoP))
-println("CoP_total = ", sum(CoP))
-println("CoT_R_Total = ", sum(CoT_R))
-println("CM = ", CM)
-#println("CoP = ", CoP)
-#println("CoT_R = ", CoT_R)
-println("Q_RT = ", Q_RT)
-println("Y_R = ", Y_R)
+
+Dis = [
+0	0	0	6	6	8	8	8	9	9
+0	0	0	6	6	8	8	8	9	9
+0	0	0	6	6	8	8	8	9	9
+6	6	6	0	0	12	12	12	13	13
+6	6	6	0	0	12	12	12	13	13
+8	8	8	12	12	0	0	2	5	5
+8	8	8	12	12	0	0	2	5	5
+8	8	8	12	12	2	2	0	5	5
+9	9	9	13	13	5	5	5	0	0
+9	9	9	13	13	5	5	5	0	0 
+]
+
+DN = [
+    0	0	0	1	1	1	1	1	1	1
+0	0	0	1	1	1	1	1	1	1
+0	0	0	1	1	1	1	1	1	1
+1	1	1	0	0	1	1	1	1	1
+1	1	1	0	0	1	1	1	1	1
+1	1	1	1	1	0	0	1	1	1
+1	1	1	1	1	0	0	1	1	1
+1	1	1	1	1	1	1	0	1	1
+1	1	1	1	1	1	1	1	0	0
+1	1	1	1	1	1	1	1	0	0
+]
+
+Q_P = Q_P[1:NP, 1:NL]
+C_MP = C_MP[1:NP, 1:NC]
+C_max = C_max[1:NP,1:NC]
+R_U = R_U[1:NT,1:NC]
+CoT = CoT[1:NT]
+RR = RR[1:NT]
+
+Q_PL = xloss[1:NP]/100 .* Q_P
+Q_PO = Q_P .- Q_PL
+Dis = Dis[1:NP, 1:NP]
+DN = DN[1:NP, 1:NP]
+
+
+#Annualized CAPEX parameters:
+n = 15      # number of years
+r = 0.10    # discount rate
+Annuity = r * ( 1 + r)^n/(( 1 + r)^n - 1)
