@@ -1,3 +1,7 @@
+# todo get rid of commented out lines, introduce parameters instead
+# todo would we want to separate model creating from solving?
+#     (this would also help is, say, SCIP is not installed but one just wants to compile the model)
+
 using JuMP
 using SCIP
 using JLD2
@@ -9,43 +13,52 @@ m = Model(with_optimizer(SCIP.Optimizer, numerics_feastol = 1e-03, limits_gap=0.
 include("Input_Inc.jl")
 #include("Example_Input_test.jl")
 
+"Add problem variables"
+function addVars()
 
-@variable(m, X[1:NP, 1:NP, 1:NL], Bin)
-@variable(m, Y_R[1:NP, 1:NP, 1:NT, 1:NL], Bin)
-#@variable(m, Y_E[1:NP, 1:NT, 1:NL], Bin)
+    #todo also comment on these variables
+    @variable(m, X[1:NP, 1:NP, 1:NL], Bin)
+    @variable(m, Y_R[1:NP, 1:NP, 1:NT, 1:NL], Bin)
+    #@variable(m, Y_E[1:NP, 1:NT, 1:NL], Bin)
 
-# flow
-@variable(m, 0 <= Q_R[1:NP, 1:NP, 1:NL])
-@variable(m, 0 <= Q_RT[1:NP, 1:NP, 1:NL])
-#@variable(m, 0 <= Q_TL[1:NP, 1:NP, 1:NL])
-@variable(m, 0 <= Q_FW[1:NP, 1:NL])
-@variable(m, 0 <= Q_E[1:NP, 1:NL])
-
-
-# concentreation
-@variable(m, 0 <= C_P[1:NP, 1:NC, 1:NL])
-@variable(m, 0 <= C_PO[1:NP, 1:NC, 1:NL])
-@variable(m, 0 <= C_RT[1:NP, 1:NP, 1:NC, 1:NL])
-#@variable(m, 0 <= C_E[1:NP, 1:NC, 1:NL])
-
-# treatment
-@variable(m, R[1:NP, 1:NP, 1:NC, 1:NL])   # no bounds, makes it slower!
-#@variable(m, R_E[1:NP, 1:NC, 1:NL])
+    # flow
+    @variable(m, 0 <= Q_R[1:NP, 1:NP, 1:NL])
+    @variable(m, 0 <= Q_RT[1:NP, 1:NP, 1:NL])
+    #@variable(m, 0 <= Q_TL[1:NP, 1:NP, 1:NL])
+    @variable(m, 0 <= Q_FW[1:NP, 1:NL])
+    @variable(m, 0 <= Q_E[1:NP, 1:NL])
 
 
+    # concentreation
+    @variable(m, 0 <= C_P[1:NP, 1:NC, 1:NL])
+    @variable(m, 0 <= C_PO[1:NP, 1:NC, 1:NL])
+    @variable(m, 0 <= C_RT[1:NP, 1:NP, 1:NC, 1:NL])
+    #@variable(m, 0 <= C_E[1:NP, 1:NC, 1:NL])
 
-# Transport variables
-#@variable(m, 0 <= Di[1:NP, 1:NP])
-#@variable(m, 0 <= Di_idx[1:NP, 1:NP, 1:NDi], Bin)
-#@variable(m, 0 <= v[1:NP, 1:NP])
-#@variable(m, 0 <= hf[1:NP, 1:NP])
+    # treatment
+    @variable(m, R[1:NP, 1:NP, 1:NC, 1:NL])   # no bounds, makes it slower!
+    #@variable(m, R_E[1:NP, 1:NC, 1:NL])
 
 
-@variable(m, 0 <= CoFW[1:NP, 1:NL])
-#@variable(m, 0 <= Cost_of_pumping[1:NP, 1:NP])
-@variable(m, 0 <= CoP[1:NP, 1:NP, 1:NL]) # treatment cost
-@variable(m, 0 <= CoT_R[1:NP, 1:NP, 1:NL] ) # piping cost
-@variable(m, 0 <= CM[1:NL]) #connectivity measure
+
+    # Transport variables
+    #@variable(m, 0 <= Di[1:NP, 1:NP])
+    #@variable(m, 0 <= Di_idx[1:NP, 1:NP, 1:NDi], Bin)
+    #@variable(m, 0 <= v[1:NP, 1:NP])
+    #@variable(m, 0 <= hf[1:NP, 1:NP])
+
+
+    @variable(m, 0 <= CoFW[1:NP, 1:NL])
+    #@variable(m, 0 <= Cost_of_pumping[1:NP, 1:NP])
+    @variable(m, 0 <= CoP[1:NP, 1:NP, 1:NL]) # treatment cost
+    @variable(m, 0 <= CoT_R[1:NP, 1:NP, 1:NL] ) # piping cost
+    @variable(m, 0 <= CM[1:NL]) #connectivity measure
+end
+
+
+### Create and solve the model ###
+
+addVars()
 
 # constraints
 #@constraint(m, [l = 1:NL], sum(Q_FW[1:NP, l]) == sum(Q_TL[1:NP, 1:NP, l]) + sum(Q_PL[1:NP, l]) + sum(Q_E[1:NP, l])) # (3.2) redundant!
