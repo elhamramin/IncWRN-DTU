@@ -1,3 +1,5 @@
+#todo create several files for different instances?
+
 NP = 9 # number of units
 NC = 2 # number of contaminants
 NT = 2 # number of treatment combinations
