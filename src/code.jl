@@ -11,7 +11,6 @@ m = Model(with_optimizer(SCIP.Optimizer, numerics_feastol = 1e-03, limits_gap=0.
 
 
 include("Input_Inc.jl")
-#include("Example_Input_test.jl")
 
 "Add problem variables"
 function addVars()
@@ -47,10 +46,10 @@ function addVars()
     #@variable(m, 0 <= v[1:NP, 1:NP])
     #@variable(m, 0 <= hf[1:NP, 1:NP])
 
-
+    # Cost variables
     @variable(m, 0 <= CoFW[1:NP, 1:NL])
     #@variable(m, 0 <= Cost_of_pumping[1:NP, 1:NP])
-    @variable(m, 0 <= CoP[1:NP, 1:NP, 1:NL]) # treatment cost
+    @variable(m, 0 <= CoP[1:NP, 1:NP, 1:NL])    # treatment cost
     @variable(m, 0 <= CoT_R[1:NP, 1:NP, 1:NL] ) # piping cost
     @variable(m, 0 <= CM[1:NL]) #connectivity measure
 end
@@ -123,11 +122,8 @@ addVars()
 #@constraint(m, [i = 1:NP, j = 1:NP, l = 1:NL-1], Y_R[i,j,3,l] <= Y_R[i,j,3,l+1])
 
 
-# Water saving constraint
-#@constraint(m, sum(Q_FW) / sum(Q_P) <= 0.80)
-#@constraint(m, sum(CoP) <= 0)
-#@constraint(m, sum(CoT_R) <= 25000)
-#@constraint(m, sum(CoT_R) + sum(CoP) <= 3500 )
+# Secondary objective, need to change th evalue and run again to get the Pareto Front
+@constraint(m, sum(CoT_R) + sum(CoP) <= 3500 )
 
 # Network connectivity measure
 #@constraint(m, sum(CM) == 0.5)
@@ -137,13 +133,7 @@ addVars()
 
 
 @objective(m, Min,
-#sum(Q_FW)
 sum(CoFW)  
-#sum(Cost_of_pumping[i,j] for i = 1:NP, j = 1:NP) +
-#sum(CoP) + 
-#sum(CoT_R) 
-#sum(CoT_E)
-
 )   #(3.1)
 
 #@objective(m, Max, sum(Q_RT))
@@ -173,23 +163,20 @@ CoT_R = JuMP.value.(CoT_R)
 #CoT_E = JuMP.value.(CoT_E)
 CoP = JuMP.value.(CoP)
 CM = JuMP.value.(CM)
-#Cost_of_pumping = JuMP.value.(Cost_of_pumping)
+
 println("Water saving L1 : ", sum(Q_RT[:,:,1]))
 println("Water saving L2 : ", sum(Q_RT[:,:,2]))
 println("Water saving L3 : ", sum(Q_RT[:,:,3]))
 println("Water saving total : ", sum(Q_RT))
-#println("Water saving L1 %: ", (1 - sum(Q_FW[:,1])/sum(Q_P[:,1]))*100)
-#println("Water saving L2 %: ", (1 - sum(Q_FW[:,2])/sum(Q_P[:,2]))*100)
-#println("Water saving L3 %: ", (1 - sum(Q_FW[:,3])/sum(Q_P[:,3]))*100)
+
+println("Water saving L1 %: ", (1 - sum(Q_FW[:,1])/sum(Q_P[:,1]))*100)
+println("Water saving L2 %: ", (1 - sum(Q_FW[:,2])/sum(Q_P[:,2]))*100)
+println("Water saving L3 %: ", (1 - sum(Q_FW[:,3])/sum(Q_P[:,3]))*100)
+
 println("Water saving total %: ", (1 - sum(Q_FW)/sum(Q_P))*100)
 println("Cost L1 : ", sum(CoT_R[:,:,1]) + sum(CoP[:,:,1]))
 println("Cost L2 : ", sum(CoT_R[:,:,2]) + sum(CoP[:,:,2]))
 println("Cost L3 : ", sum(CoT_R[:,:,3]) + sum(CoP[:,:,3]))
 println("Cost total : ", sum(CoT_R) + sum(CoP))
-println("CoP_total = ", sum(CoP))
-println("CoT_R_Total = ", sum(CoT_R))
-println("CM = ", CM)
-#println("CoP = ", CoP)
-#println("CoT_R = ", CoT_R)
-println("Q_RT = ", Q_RT)
-println("Y_R = ", Y_R)
+
+
