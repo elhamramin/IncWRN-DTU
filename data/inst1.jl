@@ -1,6 +1,6 @@
 #todo create several files for different instances?
 
-NP = 9 # number of units
+NP = 3 # number of units
 NC = 2 # number of contaminants
 NT = 2 # number of treatment combinations
 NDi = 11 # number of available standard diameters
@@ -142,51 +142,9 @@ Cost_per_kWh = 0.12 #Dollars/kWh
 pipe_roughness = 0.00015
 ft = 0.02 #friction factor
 
-Di_standard = 1e-3*[
-0
-32
-40
-50
-63
-75
-90
-110
-125
-140
-160
-]
-
-Price_per_Unit_pipe = [
-0
-1.58
-2.52
-3.91
-6.18
-8.63
-12.50
-18.54
-24.05
-29.98
-39.35
-
-]
-
-
-Dis = [
-0	0	0	6	6	8	8	8	9	9
-0	0	0	6	6	8	8	8	9	9
-0	0	0	6	6	8	8	8	9	9
-6	6	6	0	0	12	12	12	13	13
-6	6	6	0	0	12	12	12	13	13
-8	8	8	12	12	0	0	2	5	5
-8	8	8	12	12	0	0	2	5	5
-8	8	8	12	12	2	2	0	5	5
-9	9	9	13	13	5	5	5	0	0
-9	9	9	13	13	5	5	5	0	0 
-]
 
 DN = [
-    0	0	0	1	1	1	1	1	1	1
+0	0	0	1	1	1	1	1	1	1
 0	0	0	1	1	1	1	1	1	1
 0	0	0	1	1	1	1	1	1	1
 1	1	1	0	0	1	1	1	1	1
@@ -215,3 +173,47 @@ DN = DN[1:NP, 1:NP]
 n = 15      # number of years
 r = 0.10    # discount rate
 Annuity = r * ( 1 + r)^n/(( 1 + r)^n - 1)
+
+Di_standard = 1e-3*[
+0
+32
+40
+50
+63
+75
+90
+110
+125
+140
+160
+]
+
+Price_per_Unit_pipe = [
+0
+1.58
+2.52
+3.91
+6.18
+8.63
+12.50
+18.54
+24.05
+29.98
+39.35
+]
+
+
+
+Dis = [
+0	0	0	6	6	8	8	8	9	9
+0	0	0	6	6	8	8	8	9	9
+0	0	0	6	6	8	8	8	9	9
+6	6	6	0	0	12	12	12	13	13
+6	6	6	0	0	12	12	12	13	13
+8	8	8	12	12	0	0	2	5	5
+8	8	8	12	12	0	0	2	5	5
+8	8	8	12	12	2	2	0	5	5
+9	9	9	13	13	5	5	5	0	0
+9	9	9	13	13	5	5	5	0	0 
+]
+
