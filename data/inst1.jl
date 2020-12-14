@@ -165,7 +165,6 @@ RR = RR[1:NT]
 
 Q_PL = xloss[1:NP]/100 .* Q_P
 Q_PO = Q_P .- Q_PL
-Dis = Dis[1:NP, 1:NP]
 DN = DN[1:NP, 1:NP]
 
 
@@ -216,4 +215,6 @@ Dis = [
 9	9	9	13	13	5	5	5	0	0
 9	9	9	13	13	5	5	5	0	0 
 ]
+
+Dis = Dis[1:NP, 1:NP]
 
